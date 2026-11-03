@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSG-in 실시간 주차 관제</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Noto Sans KR Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandGreen: '#016922',
+                        brandBlack: '#231916',
+                        brandBg: '#FFFFFF',
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for mobile screen */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans flex justify-center items-center min-h-screen p-0 sm:p-4 text-brandBlack">
+
+    <!-- Mobile Screen Frame Container -->
+    <div class="w-full max-w-[412px] h-[100vh] sm:h-[860px] bg-brandBg sm:rounded-[40px] shadow-2xl flex flex-col overflow-hidden relative border-0 sm:border-[8px] border-brandBlack">
+        
+        <!-- Top Device Notch / Status Bar -->
+        <div class="bg-brandBg pt-3 px-6 pb-2 flex justify-between items-center text-xs font-semibold text-brandBlack select-none z-30">
+            <span>09:41</span>
+            <div class="w-20 h-4 bg-brandBlack rounded-full mx-auto hidden sm:block"></div>
+            <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-battery-full"></i>
+            </div>
+        </div>
+
+        <!-- Emart App Top Header Bar (Emart Traders In-App Header) -->
+        <header class="bg-brandBg border-b border-gray-200 px-4 py-2.5 flex items-center justify-between z-20">
+            <div class="flex items-center gap-2">
+                <button class="text-brandBlack text-lg pr-1">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div class="flex flex-col">
+                    <span class="text-[11px] font-bold text-brandGreen tracking-wider">TRADERS WHOLESALE CLUB</span>
+                    <!-- Specified Store Auto-mapped -->
+                    <button id="storeSelectBtn" onclick="toggleStoreModal()" class="flex items-center gap-1 text-base font-black text-brandBlack">
+                        <span id="currentStoreName">트레이더스 하남점</span>
+                        <i class="fa-solid fa-caret-down text-brandGreen text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header Action Icons (In-app Notification & Parking Icon) -->
+            <div class="flex items-center gap-2">
+                <button class="relative p-2 rounded-full hover:bg-gray-100 transition" title="알림">
+                    <i class="fa-regular fa-bell text-gray-700 text-lg"></i>
+                </button>
+                <!-- Active Parking Icon -->
+                <button onclick="switchTab('control')" class="relative p-2 bg-brandGreen/10 border-2 border-brandGreen rounded-xl text-brandGreen font-black flex items-center gap-1 text-xs px-2.5 py-1.5 shadow-sm">
+                    <i class="fa-solid fa-p text-sm"></i>
+                    <span>주차</span>
+                    <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Sub Status Bar (Real-time info refresh) -->
+        <div class="bg-gray-50 border-b border-gray-100 px-4 py-1.5 flex justify-between items-center text-[11px] text-gray-500">
+            <div class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-brandGreen animate-pulse"></span>
+                <span class="font-medium text-brandBlack">SSG-in 실시간 주차 관제</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span id="updateTime">관제 업데이트 1분 전</span>
+                <button onclick="refreshData()" class="hover:rotate-180 transition-transform duration-500 text-brandGreen ml-1">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN SCROLLABLE CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 bg-white">
+
+            <!-- BRAND LOGO SECTION (SSG-in Signature Header Card) -->
+            <section class="bg-gradient-to-r from-brandBlack to-gray-900 text-white rounded-2xl p-4 shadow-md flex items-center justify-between relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-brandGreen/20 rounded-full blur-xl pointer-events-none"></div>
+                <div class="flex items-center gap-3 z-10">
+                    <div class="w-12 h-12 rounded-xl bg-brandGreen flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                        <i class="fa-solid fa-car-tunnel"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h1 class="text-lg font-black tracking-tight text-white">SSG-<span class="text-brandGreen">in</span></h1>
+                            <span class="bg-brandGreen/30 text-brandGreen text-[9px] font-bold px-1.5 py-0.5 rounded border border-brandGreen/40">스마트 관제</span>
+                        </div>
+                        <p class="text-[11px] text-gray-300 font-medium">주말 진입 지옥 없는 쾌적한 주차 솔루션</p>
+                    </div>
+                </div>
+                <div class="z-10 text-right">
+                    <div class="text-[10px] text-gray-400">서비스 버전</div>
+                    <div class="text-xs font-bold text-brandGreen">v2.5 AI</div>
+                </div>
+            </section>
+
+            <!-- 1. CONGESTION & PARKING CAPACITY CARD (Huge Glanceable UI) -->
+            <section class="border-2 border-brandBlack rounded-2xl p-4 shadow-[4px_4px_0px_0px_#231916] bg-white relative overflow-hidden">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">주차장 입구 혼잡도</span>
+                    <!-- Signal Light Badge (Green / Smooth) -->
+                    <span id="statusBadge" class="bg-brandGreen text-white text-xs font-black px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-circle text-[8px] animate-ping"></i>
+                        <span>원활 (진입 대기 없음)</span>
+                    </span>
+                </div>
+
+                <!-- Big Number Highlight -->
+                <div class="my-2">
+                    <div class="text-[13px] font-bold text-gray-600">현재 즉시 주차 가능</div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="availableSpots" class="text-4xl font-black text-brandBlack tracking-tight">148</span>
+                        <span class="text-xl font-extrabold text-brandBlack">대</span>
+                        <span class="text-sm font-bold text-brandGreen bg-brandGreen/10 px-2 py-0.5 rounded ml-auto">전체 850대</span>
+                    </div>
+                </div>
+
+                <!-- Visual Progress Bar -->
+                <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden mt-3 border border-gray-200">
+                    <div id="capacityBar" class="bg-brandGreen h-full w-[82%] rounded-full transition-all duration-500"></div>
+                </div>
+            </section>
+
+
+            <!-- 2. AI TIME PREDICTION TIMELINE WIDGET (10 / 20 / 30 Min AI Forecast) -->
+            <section class="border border-gray-200 rounded-2xl p-3.5 bg-gray-50/50">
+                <div class="flex justify-between items-center mb-2.5">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-line text-brandGreen text-sm"></i>
+                        <h3 class="text-xs font-bold text-brandBlack">AI 기반 예상 진입 대기 시간</h3>
+                    </div>
+                    <span class="text-[10px] text-gray-400 font-medium">10분 단위 예측</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <!-- 10 Mins -->
+                    <button onclick="selectPrediction(10)" id="pred-10" class="pred-card border-2 border-brandGreen bg-brandGreen/5 p-2 rounded-xl text-brandBlack transition">
+                        <div class="text-[11px] font-bold text-gray-500">10분 후</div>
+                        <div class="text-base font-black text-brandGreen">0분 <span class="text-[10px] font-normal">대기</span></div>
+                        <div class="text-[10px] text-brandGreen font-bold mt-0.5">원활</div>
+                    </button>
+                    <!-- 20 Mins -->
+                    <button onclick="selectPrediction(20)" id="pred-20" class="pred-card border border-gray-200 bg-white p-2 rounded-xl text-brandBlack hover:border-brandGreen transition">
+                        <div class="text-[11px] font-bold text-gray-500">20분 후</div>
+                        <div class="text-base font-black text-brandBlack">5분 <span class="text-[10px] font-normal">대기</span></div>
+                        <div class="text-[10px] text-amber-600 font-bold mt-0.5">보통</div>
+                    </button>
+                    <!-- 30 Mins -->
+                    <button onclick="selectPrediction(30)" id="pred-30" class="pred-card border border-gray-200 bg-white p-2 rounded-xl text-brandBlack hover:border-brandGreen transition">
+                        <div class="text-[11px] font-bold text-gray-500">30분 후</div>
+                        <div class="text-base font-black text-brandBlack">15분 <span class="text-[10px] font-normal">대기</span></div>
+                        <div class="text-[10px] text-red-600 font-bold mt-0.5">혼잡</div>
+                    </button>
+                </div>
+            </section>
+
+
+            <!-- 3. FLOOR DIRECT ROUTE & SPOTS MAP CARD -->
+            <section class="border border-brandBlack/20 rounded-2xl p-4 bg-white shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-extrabold text-brandBlack flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-brandGreen"></i>
+                        층별 잔여 현황 및 최적 동선
+                    </h3>
+                    <span class="text-xs text-brandGreen font-bold">인프라 관제 연동</span>
+                </div>
+
+                <!-- Highlighted Best Route Banner -->
+                <div class="bg-brandGreen text-white p-3 rounded-xl flex items-center justify-between shadow-sm">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-white text-brandGreen flex items-center justify-center font-black text-base shrink-0">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-medium opacity-90">가장 여유 있는 추천 입차 구역</div>
+                            <div class="text-sm font-black">2층 B구역 직행 동선 추천</div>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-white/20 px-2 py-1 rounded font-bold">여유 80대</span>
+                </div>
+
+                <!-- Floor Availability Bars -->
+                <div class="space-y-2 pt-1 text-xs">
+                    <!-- Floor B1 -->
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100">
+                        <span class="font-extrabold w-10 text-brandBlack">지하 1층</span>
+                        <div class="flex-1 mx-3 bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-amber-500 h-full w-[15%]"></div>
+                        </div>
+                        <span class="font-bold text-gray-600 w-12 text-right">12대 남음</span>
+                    </div>
+
+                    <!-- Floor 2F (Recommended) -->
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-brandGreen/5 border-2 border-brandGreen">
+                        <div class="flex items-center gap-1 w-12">
+                            <span class="font-black text-brandGreen">2층</span>
+                            <span class="text-[9px] bg-brandGreen text-white px-1 rounded font-bold">추천</span>
+                        </div>
+                        <div class="flex-1 mx-2 bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-brandGreen h-full w-[75%]"></div>
+                        </div>
+                        <span class="font-extrabold text-brandGreen w-12 text-right">80대 남음</span>
+                    </div>
+
+                    <!-- Floor 3F -->
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100">
+                        <span class="font-extrabold w-10 text-brandBlack">3층</span>
+                        <div class="flex-1 mx-3 bg-gray-200 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-brandGreen h-full w-[50%]"></div>
+                        </div>
+                        <span class="font-bold text-gray-600 w-12 text-right">56대 남음</span>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- 4. MY CAR LOCATION FINDER CARD (Contextual Card) -->
+            <section class="border border-gray-200 rounded-2xl p-3.5 bg-gray-50">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-location-dot text-brandGreen text-sm"></i>
+                        <h3 class="text-xs font-bold text-brandBlack">내 차 위치 찾기 (자동 기록)</h3>
+                    </div>
+                    <span class="text-[10px] bg-brandBlack text-white px-2 py-0.5 rounded font-bold">입차 완료</span>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-brandBlack text-white flex items-center justify-center text-lg font-black">
+                            <i class="fa-solid fa-car"></i>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-gray-500 font-medium">현재 주차 구역 정보</div>
+                            <div class="text-sm font-black text-brandBlack">3층 A-07 구역 주차 중</div>
+                        </div>
+                    </div>
+                    <button onclick="showMyCarMap()" class="text-xs font-bold text-brandGreen bg-brandGreen/10 border border-brandGreen/30 px-2.5 py-1.5 rounded-lg hover:bg-brandGreen hover:text-white transition">
+                        지도 보기
+                    </button>
+                </div>
+            </section>
+
+
+            <!-- 5. NEARBY ALTERNATIVE PARKING INFO (Footer / Alternative) -->
+            <section class="border border-dashed border-gray-300 rounded-2xl p-3.5 bg-white">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-bold text-gray-600 flex items-center gap-1">
+                        <i class="fa-solid fa-square-parking text-gray-400"></i>
+                        인근 대체 주차장 정보
+                    </span>
+                    <span class="text-[10px] text-gray-400">만차 시 활용</span>
+                </div>
+                <div class="text-xs text-brandBlack font-semibold flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                    <div>
+                        <div class="font-bold text-brandBlack">풍산 공영 주차장</div>
+                        <div class="text-[10px] text-gray-500">트레이더스 도보 3분 / 여유 50대</div>
+                    </div>
+                    <a href="#" class="text-[11px] font-bold text-brandGreen flex items-center gap-1">
+                        길안내 <i class="fa-solid fa-chevron-right text-[9px]"></i>
+                    </a>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- IN-APP BOTTOM NAVIGATION MENU (Korean Menu) -->
+        <nav class="bg-brandBg border-t border-gray-200 px-2 py-2 grid grid-cols-5 text-center text-[10px] font-bold text-gray-400 z-20">
+            <!-- Trader's Home -->
+            <button onclick="switchTab('home')" class="flex flex-col items-center gap-1 py-1 hover:text-brandBlack">
+                <i class="fa-solid fa-house text-base"></i>
+                <span>트레이더스 홈</span>
+            </button>
+
+            <!-- Real-time Control (ACTIVE TAB) -->
+            <button onclick="switchTab('control')" class="flex flex-col items-center gap-1 py-1 text-brandGreen">
+                <i class="fa-solid fa-[#016922] fa-tower-broadcast text-base"></i>
+                <span class="font-black">실시간 관제</span>
+            </button>
+
+            <!-- Floor Map -->
+            <button onclick="switchTab('floormap')" class="flex flex-col items-center gap-1 py-1 hover:text-brandBlack">
+                <i class="fa-solid fa-map text-base"></i>
+                <span>층별 맵</span>
+            </button>
+
+            <!-- My Car Location -->
+            <button onclick="switchTab('mycar')" class="flex flex-col items-center gap-1 py-1 hover:text-brandBlack">
+                <i class="fa-solid fa-car-side text-base"></i>
+                <span>내 차 위치</span>
+            </button>
+
+            <!-- Settings -->
+            <button onclick="switchTab('settings')" class="flex flex-col items-center gap-1 py-1 hover:text-brandBlack">
+                <i class="fa-solid fa-gear text-base"></i>
+                <span>설정</span>
+            </button>
+        </nav>
+
+        <!-- STORE SELECT MODAL (Pop-up) -->
+        <div id="storeModal" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity">
+            <div class="bg-white w-full rounded-t-3xl sm:rounded-2xl p-5 space-y-4 max-h-[80%] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-3 border-gray-200">
+                    <h3 class="font-black text-base text-brandBlack">자주 가는 트레이더스 점포 변경</h3>
+                    <button onclick="toggleStoreModal()" class="text-gray-400 text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-2">
+                    <button onclick="selectStore('트레이더스 하남점')" class="w-full text-left p-3 rounded-xl border border-brandGreen bg-brandGreen/5 font-extrabold text-brandGreen flex justify-between items-center">
+                        <span>트레이더스 하남점 (기본 지정)</span>
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button onclick="selectStore('트레이더스 구성점')" class="w-full text-left p-3 rounded-xl border border-gray-200 font-bold text-brandBlack hover:bg-gray-50">
+                        <span>트레이더스 구성점</span>
+                    </button>
+                    <button onclick="selectStore('트레이더스 송림점')" class="w-full text-left p-3 rounded-xl border border-gray-200 font-bold text-brandBlack hover:bg-gray-50">
+                        <span>트레이더스 송림점</span>
+                    </button>
+                    <button onclick="selectStore('트레이더스 월계점')" class="w-full text-left p-3 rounded-xl border border-gray-200 font-bold text-brandBlack hover:bg-gray-50">
+                        <span>트레이더스 월계점</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MY CAR MAP MODAL -->
+        <div id="myCarModal" class="hidden absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white w-full rounded-2xl p-5 space-y-4">
+                <div class="flex justify-between items-center border-b pb-2 border-gray-200">
+                    <h3 class="font-black text-sm text-brandBlack">3층 A-07 구역 세부 위치</h3>
+                    <button onclick="closeMyCarMap()" class="text-gray-400 text-lg"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="bg-gray-100 rounded-xl h-48 border-2 border-brandBlack flex flex-col items-center justify-center relative overflow-hidden">
+                    <!-- Floor grid map representation -->
+                    <div class="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                    <div class="z-10 bg-brandGreen text-white px-3 py-1.5 rounded-full font-black text-xs shadow-lg flex items-center gap-1.5 animate-bounce">
+                        <i class="fa-solid fa-car"></i>
+                        <span>내 차 위치 (A-07)</span>
+                    </div>
+                    <span class="z-10 text-[10px] text-gray-500 mt-2 font-bold">3층 매장 출입구 도보 1분</span>
+                </div>
+                <button onclick="closeMyCarMap()" class="w-full bg-brandBlack text-white py-2.5 rounded-xl text-xs font-extrabold">닫기</button>
+            </div>
+        </div>
+
+        <!-- NOTIFICATION TOAST -->
+        <div id="toast" class="hidden absolute top-16 left-1/2 -translate-x-1/2 bg-brandBlack text-white text-xs px-4 py-2.5 rounded-full font-bold shadow-xl z-40 transition-all flex items-center gap-2 border border-white/20">
+            <i class="fa-solid fa-circle-check text-brandGreen"></i>
+            <span id="toastMsg">실시간 데이터가 갱신되었습니다.</span>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Store Selector Modal
+        function toggleStoreModal() {
+            const modal = document.getElementById('storeModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function selectStore(storeName) {
+            document.getElementById('currentStoreName').innerText = storeName;
+            toggleStoreModal();
+            showToast(`${storeName} 실시간 주차 정보 매핑 완료`);
+        }
+
+        // Prediction Timeline selection
+        function selectPrediction(mins) {
+            document.querySelectorAll('.pred-card').forEach(card => {
+                card.classList.remove('border-2', 'border-brandGreen', 'bg-brandGreen/5');
+                card.classList.add('border-gray-200', 'bg-white');
+            });
+
+            const selected = document.getElementById(`pred-${mins}`);
+            selected.classList.remove('border-gray-200', 'bg-white');
+            selected.classList.add('border-2', 'border-brandGreen', 'bg-brandGreen/5');
+
+            showToast(`${mins}분 후 예상 주차 상태 정보가 로드되었습니다.`);
+        }
+
+        // Refresh Data Simulation
+        function refreshData() {
+            const spots = document.getElementById('availableSpots');
+            const newSpots = Math.floor(Math.random() * 20) + 135;
+            spots.innerText = newSpots;
+
+            document.getElementById('updateTime').innerText = '방금 전 업데이트';
+            showToast('실시간 주차 가능 대수가 업데이트되었습니다.');
+        }
+
+        // Toast Message
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2500);
+        }
+
+        // My Car Modal
+        function showMyCarMap() {
+            document.getElementById('myCarModal').classList.remove('hidden');
+        }
+
+        function closeMyCarMap() {
+            document.getElementById('myCarModal').classList.add('hidden');
+        }
+
+        // Tab Switching placeholder
+        function switchTab(tabName) {
+            if (tabName !== 'control') {
+                showToast(`'${tabName}' 탭으로 이동합니다.`);
+            }
+        }
+    </script>
+</body>
+</html>
